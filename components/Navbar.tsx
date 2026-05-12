@@ -11,9 +11,10 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Home", href: "/" },
-    { name: "About", href: "#about" },
-    { name: "Services", href: "#services" },
-    { name: "Projects", href: "#projects" },
+    { name: "About", href: "/about" },
+    { name: "Services", href: "/#services" },
+    { name: "Projects", href: "/projects" },
+    { name: "Announcements", href: "/announcements" },
   ];
 
   return (
@@ -34,7 +35,7 @@ export default function Navbar() {
               </div>
               <div>
                 <span className="text-xl font-bold text-stone-800">
-                  Dir<span className="bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">Construction</span>
+                  Dir Design &<span className="bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent"> Construction</span>
                 </span>
                 <span className="hidden lg:inline-block text-xs text-stone-400 ml-1">est. 2025</span>
               </div>
@@ -102,7 +103,7 @@ export default function Navbar() {
                   <Link href="/" className="flex items-center gap-2" onClick={() => setIsMobileMenuOpen(false)}>
                     <Building2 className="w-7 h-7 text-amber-600" />
                     <span className="text-xl font-bold text-stone-800">
-                      Dir<span className="text-amber-600">Construction</span>
+                      Dir Design &<span className="text-amber-600"> Construction</span>
                     </span>
                   </Link>
                   <button
