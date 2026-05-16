@@ -442,11 +442,11 @@ export default function AdminDashboard() {
 
                   <div>
                     <label className="block text-sm font-bold text-stone-700 mb-2 text-left">
-                      {activeTab === 'projects' ? 'Images' : 'Image'}
+                      {(activeTab === 'projects' || activeTab === 'announcements') ? 'Images' : 'Image'}
                     </label>
                     
                     {/* Previews Section */}
-                    {activeTab === 'projects' && (existingImageUrls.length > 0 || files.length > 0) && (
+                    {(activeTab === 'projects' || activeTab === 'announcements') && (existingImageUrls.length > 0 || files.length > 0) && (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
                         {/* Existing Images */}
                         {existingImageUrls.map((url, idx) => (
@@ -489,7 +489,7 @@ export default function AdminDashboard() {
                       <input 
                         type="file" 
                         accept="image/*" 
-                        multiple={activeTab === 'projects'}
+                        multiple={activeTab === 'projects' || activeTab === 'announcements'}
                         onChange={(e) => {
                           const selectedFiles = Array.from(e.target.files || [])
                           setFiles(prev => [...prev, ...selectedFiles]) // Append instead of replace
@@ -498,7 +498,7 @@ export default function AdminDashboard() {
                       />
                       <Upload className="w-8 h-8 text-stone-300 mx-auto mb-2" />
                       <p className="text-xs text-stone-500">
-                        {activeTab === 'projects' ? 'Add more images' : 'Click to upload image'}
+                        {(activeTab === 'projects' || activeTab === 'announcements') ? 'Add more images' : 'Click to upload image'}
                       </p>
                     </div>
                   </div>
