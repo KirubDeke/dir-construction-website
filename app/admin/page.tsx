@@ -43,7 +43,8 @@ export default function AdminDashboard() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState('')
-  const [file, setFile] = useState<File | null>(null)
+  const [files, setFiles] = useState<File[]>([])
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([])
   const [isUrgent, setIsUrgent] = useState(false)
 
   // User Management Form States
@@ -83,7 +84,7 @@ export default function AdminDashboard() {
       .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
     
     if (profileError) {
       console.error("Error fetching profile:", profileError)
@@ -91,7 +92,7 @@ export default function AdminDashboard() {
     } else if (profile) {
       setUserRole(profile.role)
     } else {
-      setUserRole('staff')
+      setUserRole(user.user_metadata?.role || 'staff')
     }
   }
 
@@ -126,7 +127,8 @@ export default function AdminDashboard() {
     setTitle('')
     setDescription('')
     setCategory('')
-    setFile(null)
+    setFiles([])
+    setExistingImageUrls([])
     setIsUrgent(false)
     setEditingItem(null)
     setMessage(null)
@@ -144,7 +146,17 @@ export default function AdminDashboard() {
     setCategory(item.category || '')
     setIsUrgent(item.is_urgent || false)
     setMessage(null)
+    setFiles([]) 
+    setExistingImageUrls(item.image_urls || (item.image_url ? [item.image_url] : []))
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const removeExistingImage = (urlToRemove: string) => {
+    setExistingImageUrls(prev => prev.filter(url => url !== urlToRemove))
+  }
+
+  const removeNewFile = (index: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -155,8 +167,13 @@ export default function AdminDashboard() {
       return
     } */
 
-    if (!editingItem && !file) {
-      setMessage({ type: 'error', text: 'Please select an image' })
+    if (!editingItem && files.length === 0) {
+      setMessage({ type: 'error', text: 'Please select at least one image' })
+      return
+    }
+
+    if (editingItem && activeTab === 'projects' && existingImageUrls.length === 0 && files.length === 0) {
+      setMessage({ type: 'error', text: 'Project must have at least one image' })
       return
     }
 
@@ -164,39 +181,37 @@ export default function AdminDashboard() {
     setMessage(null)
 
     try {
-      let finalImageUrl = editingItem?.image_url || ''
+      let finalImageUrl = ''
+      let finalImageUrls: string[] = [...existingImageUrls]
 
-      if (file) {
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Math.random()}.${fileExt}`
-        const filePath = `${fileName}`
+      // Upload new files
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${Math.random()}.${fileExt}`
+          const filePath = `${fileName}`
 
-        const { error: uploadError } = await supabase.storage
-          .from(activeTab)
-          .upload(filePath, file)
+          const { error: uploadError } = await supabase.storage
+            .from(activeTab)
+            .upload(filePath, file)
 
-        if (uploadError) throw uploadError
+          if (uploadError) throw uploadError
 
-        const { data: { publicUrl } } = supabase.storage
-          .from(activeTab)
-          .getPublicUrl(filePath)
-        
-        finalImageUrl = publicUrl
-
-        if (editingItem?.image_url) {
-          try {
-            const oldPath = editingItem.image_url.split('/').pop()
-            if (oldPath) {
-              await supabase.storage.from(activeTab).remove([oldPath])
-            }
-          } catch (err) {
-            console.error('Error deleting old image:', err)
-          }
+          const { data: { publicUrl } } = supabase.storage
+            .from(activeTab)
+            .getPublicUrl(filePath)
+          
+          finalImageUrls.push(publicUrl)
         }
       }
 
+      // If we are editing and images were removed, we should ideally delete them from storage.
+      // For now, we'll just update the DB. Granular storage cleanup is complex without a tracker.
+      
+      finalImageUrl = finalImageUrls[0] || ''
+
       const rowData = activeTab === 'projects' 
-        ? { title, description, category, image_url: finalImageUrl }
+        ? { title, description, category, image_url: finalImageUrl, image_urls: finalImageUrls }
         : { title, content: description, image_url: finalImageUrl, is_urgent: isUrgent }
 
       if (editingItem) {
@@ -254,14 +269,17 @@ export default function AdminDashboard() {
     }
   } */
 
-  async function handleDelete(id: string, imageUrl?: string) {
+  async function handleDelete(id: string, imageUrl?: string, imageUrls?: string[]) {
     if (!confirm('Are you sure you want to delete this item?')) return
 
     try {
       const tableName = activeTab === 'users' ? 'profiles' : activeTab
 
-      if (imageUrl) {
-        const path = imageUrl.split('/').pop()
+      // Delete all images if it's a project
+      const urlsToDelete = imageUrls && imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : []
+      
+      for (const url of urlsToDelete) {
+        const path = url.split('/').pop()
         if (path) {
           await supabase.storage.from(activeTab).remove([path])
         }
@@ -281,6 +299,7 @@ export default function AdminDashboard() {
       setMessage({ type: 'error', text: error.message })
     }
   }
+
 
   if (!userRole) return <div className="h-screen flex items-center justify-center bg-stone-50"><Loader2 className="w-8 h-8 animate-spin text-amber-600" /></div>
 
@@ -393,13 +412,19 @@ export default function AdminDashboard() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-2 text-left">Description/Content</label>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-bold text-stone-700 text-left">Description/Content</label>
+                      <span className={`text-[10px] font-bold ${description.length > 500 ? 'text-amber-600' : 'text-stone-400'}`}>
+                        {description.length} characters
+                      </span>
+                    </div>
                     <textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       required
-                      rows={4}
-                      className="w-full px-4 py-3 rounded-xl border border-stone-200 outline-none focus:border-amber-600 transition-all resize-none"
+                      rows={8}
+                      placeholder="Enter a detailed professional description..."
+                      className="w-full px-4 py-3 rounded-xl border border-stone-200 outline-none focus:border-amber-600 transition-all resize-none text-sm leading-relaxed"
                     />
                   </div>
 
@@ -416,11 +441,65 @@ export default function AdminDashboard() {
                   )}
 
                   <div>
-                    <label className="block text-sm font-bold text-stone-700 mb-2 text-left">Image</label>
+                    <label className="block text-sm font-bold text-stone-700 mb-2 text-left">
+                      {activeTab === 'projects' ? 'Images' : 'Image'}
+                    </label>
+                    
+                    {/* Previews Section */}
+                    {activeTab === 'projects' && (existingImageUrls.length > 0 || files.length > 0) && (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mb-4">
+                        {/* Existing Images */}
+                        {existingImageUrls.map((url, idx) => (
+                          <div key={`existing-${idx}`} className="relative group aspect-square rounded-xl overflow-hidden bg-stone-100 border border-stone-200">
+                            <img src={url} alt="Existing" className="w-full h-full object-cover" />
+                            <button 
+                              type="button"
+                              onClick={() => removeExistingImage(url)}
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/40 text-[8px] text-white py-0.5 text-center">Saved</div>
+                          </div>
+                        ))}
+                        
+                        {/* New Files */}
+                        {files.map((file, idx) => (
+                          <div key={`new-${idx}`} className="relative group aspect-square rounded-xl overflow-hidden bg-amber-50 border border-amber-200">
+                            <img 
+                              src={URL.createObjectURL(file)} 
+                              alt="New" 
+                              className="w-full h-full object-cover"
+                              onLoad={(e) => URL.revokeObjectURL((e.target as any).src)} 
+                            />
+                            <button 
+                              type="button"
+                              onClick={() => removeNewFile(idx)}
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <div className="absolute bottom-0 left-0 right-0 bg-amber-500/80 text-[8px] text-white py-0.5 text-center font-bold">New</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="relative border-2 border-dashed rounded-xl p-6 text-center hover:border-amber-500 transition-colors">
-                      <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        multiple={activeTab === 'projects'}
+                        onChange={(e) => {
+                          const selectedFiles = Array.from(e.target.files || [])
+                          setFiles(prev => [...prev, ...selectedFiles]) // Append instead of replace
+                        }} 
+                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                      />
                       <Upload className="w-8 h-8 text-stone-300 mx-auto mb-2" />
-                      <p className="text-xs text-stone-500">{file ? file.name : 'Click or drag to upload'}</p>
+                      <p className="text-xs text-stone-500">
+                        {activeTab === 'projects' ? 'Add more images' : 'Click to upload image'}
+                      </p>
                     </div>
                   </div>
 
@@ -498,8 +577,22 @@ export default function AdminDashboard() {
               ) : (
                 items.map((item) => (
                   <motion.div layout key={item.id} className={`bg-white p-4 rounded-2xl border transition-all flex gap-4 group ${editingItem?.id === item.id ? 'border-amber-500 ring-1 ring-amber-500/20' : 'border-stone-200'}`}>
-                    <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-stone-100">
-                      {item.image_url ? <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-stone-300"><ImageIcon className="w-8 h-8" /></div>}
+                    <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-stone-100 relative">
+                      {item.image_url ? (
+                        <>
+                          <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
+                          {item.image_urls && item.image_urls.length > 1 && (
+                            <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                              <ImageIcon className="w-2 h-2" />
+                              {item.image_urls.length}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-stone-300">
+                          <ImageIcon className="w-8 h-8" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-grow py-1">
                       <div className="flex items-start justify-between">
@@ -510,7 +603,7 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={() => handleEdit(item)} className="p-2 text-stone-400 hover:text-amber-600 transition-colors"><Pencil className="w-5 h-5" /></button>
-                          <button onClick={() => handleDelete(item.id, item.image_url)} className="p-2 text-stone-400 hover:text-red-600 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                          <button onClick={() => handleDelete(item.id, item.image_url, item.image_urls)} className="p-2 text-stone-400 hover:text-red-600 transition-colors"><Trash2 className="w-5 h-5" /></button>
                         </div>
                       </div>
                     </div>

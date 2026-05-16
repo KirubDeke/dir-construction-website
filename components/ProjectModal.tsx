@@ -1,9 +1,9 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Building2, Tag } from 'lucide-react'
+import { X, Building2, Tag, ChevronLeft, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 interface ProjectModalProps {
   project: {
@@ -12,6 +12,7 @@ interface ProjectModalProps {
     category: string
     description: string
     image_url: string
+    image_urls?: string[]
     created_at?: string
   } | null
   isOpen: boolean
@@ -19,6 +20,13 @@ interface ProjectModalProps {
 }
 
 export default function ProjectModal({ project, isOpen, onClose }: ProjectModalProps) {
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+
+  // Reset image index when modal opens or project changes
+  useEffect(() => {
+    setActiveImageIndex(0)
+  }, [project, isOpen])
+
   // Prevent scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -31,8 +39,12 @@ export default function ProjectModal({ project, isOpen, onClose }: ProjectModalP
 
   if (!project) return null
 
+  const images = project.image_urls && project.image_urls.length > 0 
+    ? project.image_urls 
+    : project.image_url ? [project.image_url] : []
+
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
           {/* Backdrop */}
@@ -49,7 +61,7 @@ export default function ProjectModal({ project, isOpen, onClose }: ProjectModalP
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="relative w-full max-w-5xl bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col md:flex-row max-h-[90vh]"
+            className="relative w-full max-w-6xl bg-stone-900 rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col md:flex-row max-h-[90vh]"
           >
             {/* Close Button */}
             <button
@@ -60,25 +72,87 @@ export default function ProjectModal({ project, isOpen, onClose }: ProjectModalP
             </button>
 
             {/* Left: Image Side */}
-            <div className="lg:col-span-7 relative h-72 lg:h-auto bg-stone-800">
-              {project.image_url ? (
-                <Image 
-                  src={project.image_url} 
-                  alt={project.title}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 60vw"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Building2 className="w-24 h-24 text-amber-400/20" />
+            <div className="md:w-3/5 lg:w-2/3 relative h-80 md:h-auto bg-stone-800 flex flex-col">
+              <div className="relative flex-grow">
+                {images.length > 0 ? (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeImageIndex}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0"
+                    >
+                      <Image 
+                        src={images[activeImageIndex]} 
+                        alt={`${project.title} - Image ${activeImageIndex + 1}`}
+                        fill
+                        sizes="(max-width: 1024px) 100vw, 66vw"
+                        className="object-cover"
+                        priority
+                      />
+                    </motion.div>
+                  </AnimatePresence>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Building2 className="w-24 h-24 text-amber-400/20" />
+                  </div>
+                )}
+                
+                {/* Navigation Arrows for Slider */}
+                {images.length > 1 && (
+                  <>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+                      }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/60 text-white rounded-full backdrop-blur-sm transition-all border border-white/10 z-10"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-black/30 hover:bg-black/60 text-white rounded-full backdrop-blur-sm transition-all border border-white/10 z-10"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  </>
+                )}
+
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent pointer-events-none" />
+              </div>
+
+              {/* Thumbnails */}
+              {images.length > 1 && (
+                <div className="p-4 bg-stone-950/50 backdrop-blur-md border-t border-white/5 flex gap-2 overflow-x-auto no-scrollbar">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`relative w-20 h-14 rounded-lg overflow-hidden flex-shrink-0 transition-all border-2 ${
+                        activeImageIndex === idx ? 'border-amber-500 scale-105 shadow-lg shadow-amber-500/20' : 'border-transparent opacity-50 hover:opacity-100'
+                      }`}
+                    >
+                      <Image 
+                        src={img} 
+                        alt={`Thumbnail ${idx + 1}`}
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
+                    </button>
+                  ))}
                 </div>
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-900 via-transparent to-transparent md:bg-gradient-to-r" />
             </div>
 
             {/* Right: Info Side */}
-            <div className="md:w-2/5 p-8 md:p-12 overflow-y-auto">
+            <div className="md:w-2/5 lg:w-1/3 p-8 md:p-10 overflow-y-auto bg-stone-900">
               <div className="inline-flex items-center gap-2 bg-amber-500/10 rounded-full px-4 py-1.5 mb-6 border border-amber-500/20">
                 <Tag className="w-3.5 h-3.5 text-amber-400" />
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
@@ -86,7 +160,7 @@ export default function ProjectModal({ project, isOpen, onClose }: ProjectModalP
                 </span>
               </div>
 
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+              <h2 className="text-3xl font-bold text-white mb-6 leading-tight">
                 {project.title}
               </h2>
 
@@ -95,6 +169,17 @@ export default function ProjectModal({ project, isOpen, onClose }: ProjectModalP
                   <p className="leading-relaxed text-lg">
                     {project.description}
                   </p>
+                </div>
+
+                <div className="pt-8 mt-8 border-t border-white/10 space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Project Type</span>
+                    <span className="text-white font-medium">{project.category}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Industry</span>
+                    <span className="text-white font-medium">Construction & Design</span>
+                  </div>
                 </div>
 
                 <button 

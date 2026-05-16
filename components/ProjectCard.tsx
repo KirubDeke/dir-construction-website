@@ -11,6 +11,7 @@ interface ProjectCardProps {
     category: string
     description: string
     image_url: string
+    image_urls?: string[]
   }
   index: number
   onViewDetails: (project: any) => void
