@@ -131,7 +131,6 @@ export default function AboutPage() {
                     alt="Dir Logo" 
                     width={20} 
                     height={20} 
-                    unoptimized
                     className="object-contain" 
                   />
                   <span className="text-xs font-bold text-amber-800 uppercase tracking-widest">Our Philosophy</span>
@@ -156,7 +155,6 @@ export default function AboutPage() {
                       src="/images/icon.png" 
                       alt="Dir Construction Logo" 
                       fill
-                      unoptimized
                       priority
                       className="object-contain opacity-90 group-hover:scale-105 transition-transform duration-700" 
                     />
@@ -230,7 +228,7 @@ export default function AboutPage() {
                         src={member.image} 
                         alt={member.name}
                         fill
-                        unoptimized
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 400px"
                         priority={i < 3}
                         className="object-cover group-hover:scale-105 transition-transform duration-700"
                       />

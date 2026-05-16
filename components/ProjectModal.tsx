@@ -60,12 +60,14 @@ export default function ProjectModal({ project, isOpen, onClose }: ProjectModalP
             </button>
 
             {/* Left: Image Side */}
-            <div className="md:w-3/5 relative h-64 md:h-auto bg-stone-800">
+            <div className="lg:col-span-7 relative h-72 lg:h-auto bg-stone-800">
               {project.image_url ? (
-                <img
-                  src={project.image_url}
+                <Image 
+                  src={project.image_url} 
                   alt={project.title}
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 60vw"
+                  className="object-cover"
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">

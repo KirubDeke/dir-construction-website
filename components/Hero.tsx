@@ -147,7 +147,7 @@ export default function ConstructionLandingPage() {
               height={850}
               className="w-full max-w-md object-contain drop-shadow-2xl"
               priority
-              unoptimized
+              sizes="(max-width: 768px) 100vw, 550px"
             />
           </motion.div>
         </div>

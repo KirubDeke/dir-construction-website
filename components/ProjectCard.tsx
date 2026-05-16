@@ -30,10 +30,12 @@ export default function ProjectCard({ project, index, onViewDetails }: ProjectCa
         {/* Project Image */}
         <div className="relative h-56 w-full overflow-hidden bg-stone-800">
           {project.image_url ? (
-            <img 
+            <Image 
               src={project.image_url} 
               alt={project.title}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-110"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
