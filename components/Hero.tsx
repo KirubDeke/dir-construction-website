@@ -181,7 +181,7 @@ export default function ConstructionLandingPage() {
             className="inline-flex items-center gap-2 bg-amber-500/10 backdrop-blur-sm rounded-full px-4 py-2 mb-8"
           >
             <Building2 className="w-4 h-4 text-amber-400" />
-            <span className="text-sm font-medium text-amber-400">Welcome to Dir Construction</span>
+            <span className="text-sm font-medium text-amber-400">Welcome to Dir Design and Construction</span>
           </motion.div>
 
           {/* Main Heading */}
