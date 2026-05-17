@@ -36,6 +36,14 @@ export default function AdminDashboard() {
   const [editingItem, setEditingItem] = useState<any>(null)
   const [userRole, setUserRole] = useState<'admin' | 'staff' | null>(null)
   
+  // Delete Confirmation State
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    itemId: string;
+    imageUrl?: string;
+    imageUrls?: string[];
+  }>({ isOpen: false, itemId: '' })
+  
   const supabase = createClient()
   const router = useRouter()
 
@@ -269,10 +277,10 @@ export default function AdminDashboard() {
     }
   } */
 
-  async function handleDelete(id: string, imageUrl?: string, imageUrls?: string[]) {
-    if (!confirm('Are you sure you want to delete this item?')) return
-
+  async function executeDelete() {
+    setIsLoading(true)
     try {
+      const { itemId, imageUrl, imageUrls } = deleteConfirmation
       const tableName = activeTab === 'users' ? 'profiles' : activeTab
 
       // Delete all images if it's a project
@@ -288,16 +296,28 @@ export default function AdminDashboard() {
       const { error: dbError } = await supabase
         .from(tableName)
         .delete()
-        .eq('id', id)
+        .eq('id', itemId)
 
       if (dbError) throw dbError
 
       fetchItems()
       setMessage({ type: 'success', text: 'Item deleted successfully' })
-      if (editingItem?.id === id) resetForm()
+      if (editingItem?.id === itemId) resetForm()
     } catch (error: any) {
       setMessage({ type: 'error', text: error.message })
+    } finally {
+      setIsLoading(false)
+      setDeleteConfirmation({ isOpen: false, itemId: '' })
     }
+  }
+
+  const handleDeleteClick = (id: string, imageUrl?: string, imageUrls?: string[]) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      itemId: id,
+      imageUrl,
+      imageUrls
+    })
   }
 
 
@@ -455,7 +475,7 @@ export default function AdminDashboard() {
                             <button 
                               type="button"
                               onClick={() => removeExistingImage(url)}
-                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full transition-opacity shadow-lg"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -475,7 +495,7 @@ export default function AdminDashboard() {
                             <button 
                               type="button"
                               onClick={() => removeNewFile(idx)}
-                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full transition-opacity shadow-lg"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -562,8 +582,9 @@ export default function AdminDashboard() {
                       <div className="md:w-2/3 flex flex-col">
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-stone-800 text-lg">{msg.subject || 'No Subject'}</h3>
-                          <button onClick={() => handleDelete(msg.id)} className="p-2 text-stone-300 hover:text-red-600 transition-colors opacity-0 group-hover:opacity-100">
-                            <Trash2 className="w-5 h-5" />
+                          <button onClick={() => handleDeleteClick(msg.id)} className="flex items-center gap-1.5 px-3 py-2 text-stone-500 hover:text-red-600 transition-colors bg-stone-50 rounded-xl border border-stone-100">
+                            <Trash2 className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Delete</span>
                           </button>
                         </div>
                         <div className="bg-stone-50 p-4 rounded-2xl text-stone-600 text-sm leading-relaxed border border-stone-100 flex-grow italic">
@@ -601,9 +622,15 @@ export default function AdminDashboard() {
                           <h3 className="font-bold text-stone-800">{item.title}</h3>
                           <p className="text-sm text-stone-500 line-clamp-2 mt-1">{item.description || item.content}</p>
                         </div>
-                        <div className="flex gap-1 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => handleEdit(item)} className="p-2 text-stone-400 hover:text-amber-600 transition-colors"><Pencil className="w-5 h-5" /></button>
-                          <button onClick={() => handleDelete(item.id, item.image_url, item.image_urls)} className="p-2 text-stone-400 hover:text-red-600 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                        <div className="flex gap-2 ml-4">
+                          <button onClick={() => handleEdit(item)} className="flex items-center gap-1.5 px-3 py-2 text-stone-500 hover:text-amber-600 transition-colors bg-stone-50 rounded-xl border border-stone-100">
+                            <Pencil className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Edit</span>
+                          </button>
+                          <button onClick={() => handleDeleteClick(item.id, item.image_url, item.image_urls)} className="flex items-center gap-1.5 px-3 py-2 text-stone-500 hover:text-red-600 transition-colors bg-stone-50 rounded-xl border border-stone-100">
+                            <Trash2 className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Delete</span>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -619,6 +646,52 @@ export default function AdminDashboard() {
           </section>
         </div>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {deleteConfirmation.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteConfirmation({ isOpen: false, itemId: '' })}
+              className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white rounded-[32px] p-8 md:p-10 max-w-md w-full shadow-2xl border border-stone-100"
+            >
+              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              
+              <h2 className="text-2xl font-bold text-stone-900 mb-2">Confirm Deletion</h2>
+              <p className="text-stone-500 mb-8 leading-relaxed">
+                Are you sure you want to delete this {activeTab === 'projects' ? 'project' : activeTab === 'announcements' ? 'news' : 'message'}? This action cannot be undone.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirmation({ isOpen: false, itemId: '' })}
+                  className="flex-1 px-6 py-4 bg-stone-100 hover:bg-stone-200 text-stone-600 font-bold rounded-2xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeDelete}
+                  disabled={isLoading}
+                  className="flex-1 px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Delete Now'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
